@@ -24,7 +24,7 @@ import type {
 import { ModuleThread, Thread } from "@fluencelabs/threads/master";
 
 import { MarineLogger, marineLogger } from "../../util/logger.js";
-import { IMarineHost } from "../interfaces.js";
+import { IMarineHost, Module } from "../interfaces.js";
 
 export class MarineBackgroundRunner implements IMarineHost {
   private loggers = new Map<string, MarineLogger>();
@@ -56,15 +56,16 @@ export class MarineBackgroundRunner implements IMarineHost {
 
     this.workerThread.onLogMessage().subscribe(logfn);
     await this.workerThread.init(this.marineJsWasm);
-    await this.createService(this.avmWasm, "avm");
+    await this.createService(this.avmWasm, "avm", []);
   }
 
   async createService(
     serviceModule: ArrayBuffer | SharedArrayBuffer,
     serviceId: string,
+    additionalModules: Module[],
   ): Promise<void> {
     this.loggers.set(serviceId, marineLogger(serviceId));
-    await this.workerThread.createService(serviceModule, serviceId);
+    await this.workerThread.createService(serviceModule, serviceId, additionalModules);
   }
 
   async callService(

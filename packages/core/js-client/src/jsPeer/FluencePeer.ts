@@ -48,7 +48,7 @@ import {
   ServiceError,
 } from "../jsServiceHost/serviceUtils.js";
 import { KeyPair } from "../keypair/index.js";
-import { IMarineHost } from "../marine/interfaces.js";
+import { IMarineHost, Module } from "../marine/interfaces.js";
 import { IParticle } from "../particle/interfaces.js";
 import {
   cloneWithNewData,
@@ -57,9 +57,11 @@ import {
   Particle,
   ParticleQueueItem,
 } from "../particle/Particle.js";
+import { registerMultiModuleSrv } from "../services/_aqua/multi-module-srv.js";
 import { registerSig } from "../services/_aqua/services.js";
 import { registerSrv } from "../services/_aqua/single-module-srv.js";
 import { registerTracing } from "../services/_aqua/tracing.js";
+import { MultiModuleSrv } from "../services/MultiModuleSrv.js";
 import { defaultSigGuard, Sig } from "../services/Sig.js";
 import { Srv } from "../services/SingleModuleSrv.js";
 import { Tracing } from "../services/Tracing.js";
@@ -166,12 +168,13 @@ export abstract class FluencePeer {
   async registerMarineService(
     wasm: ArrayBuffer | SharedArrayBuffer,
     serviceId: string,
+    additionalModules: Module[],
   ): Promise<void> {
     if (this.jsServiceHost.hasService(serviceId)) {
       throw new Error(`Service with '${serviceId}' id already exists`);
     }
 
-    await this.marineHost.createService(wasm, serviceId);
+    await this.marineHost.createService(wasm, serviceId, additionalModules);
   }
 
   /**
@@ -318,6 +321,7 @@ export abstract class FluencePeer {
     sig: Sig;
     srv: Srv;
     tracing: Tracing;
+    multiModuleSrv: MultiModuleSrv;
   };
 
   private isInitialized = false;
@@ -327,6 +331,7 @@ export abstract class FluencePeer {
     this._classServices = {
       sig: new Sig(this.keyPair),
       srv: new Srv(this),
+      multiModuleSrv: new MultiModuleSrv(this),
       tracing: new Tracing(),
     };
 
@@ -338,6 +343,7 @@ export abstract class FluencePeer {
     registerSig(this, "sig", this._classServices.sig);
     registerSig(this, peerId, this._classServices.sig);
     registerSrv(this, "single_module_srv", this._classServices.srv);
+    registerMultiModuleSrv(this, "multi_module_srv", this._classServices.multiModuleSrv);
     registerTracing(this, "tracingSrv", this._classServices.tracing);
   }
 

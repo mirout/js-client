@@ -43,7 +43,7 @@ describe("Marine js tests", () => {
         path.join(__dirname, "../../../data_for_test/greeting.wasm"),
       );
 
-      await peer.registerMarineService(wasm, "greeting");
+      await peer.registerMarineService(wasm, "greeting", []);
 
       // act
       assert(aqua["call"]);

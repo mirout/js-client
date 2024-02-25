@@ -19,6 +19,11 @@ import { CallParameters } from "@fluencelabs/marine-worker";
 
 import { IStartable } from "../util/commonTypes.js";
 
+export type Module = {
+  name: string;
+  wasm: ArrayBuffer | SharedArrayBuffer;  
+};
+
 /**
  * Contract for marine host implementations. Marine host is responsible for creating calling and removing marine services
  */
@@ -29,6 +34,7 @@ export interface IMarineHost extends IStartable {
   createService(
     serviceModule: ArrayBuffer | SharedArrayBuffer,
     serviceId: string,
+    additionalModules: Module[],
   ): Promise<void>;
 
   /**

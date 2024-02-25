@@ -30,7 +30,7 @@ export const defaultGuard = (peer: FluencePeer) => {
 };
 
 // Service for registering marine modules in js-client's marine runtime
-export class Srv {
+export class MultiModuleSrv {
   private services: Set<string> = new Set();
 
   constructor(private peer: FluencePeer) {
@@ -40,7 +40,7 @@ export class Srv {
 
   securityGuard_create: SecurityGuard;
 
-  async create({ args: [wasmContent], context }: ServiceFnArgs<[string]>) {
+  async create({ args: [facadeContent, modules], context }: ServiceFnArgs<[string, Array<{name: string, wasm_b64_content: string}>]>) {
     if (!this.securityGuard_create(context)) {
       return {
         success: false,
@@ -52,16 +52,18 @@ export class Srv {
     try {
       const newServiceId = uuidv4();
 
-      const wasmContentBinary = Uint8Array.from(atob(wasmContent), (m) => {
-        // codePointAt cannot return `undefined` value here as callback is called on every symbol
-        return m.codePointAt(0) ?? 0;
-      });
+      const mappedModules = modules.map(({ name, wasm_b64_content }) => {
+        return { name, wasm: MultiModuleSrv.stringToBinary(wasm_b64_content), };
+      }); 
 
+      const wasmContentBinary = MultiModuleSrv.stringToBinary(facadeContent);
+      
       // TODO:: figure out why SharedArrayBuffer is not working here
       // const sab = new SharedArrayBuffer(buffer.length);
       // const tmp = new Uint8Array(sab);
       // tmp.set(buffer, 0);
-      await this.peer.registerMarineService(wasmContentBinary, newServiceId, []);
+
+      await this.peer.registerMarineService(wasmContentBinary, newServiceId, mappedModules);
       this.services.add(newServiceId);
 
       return {
@@ -76,6 +78,13 @@ export class Srv {
         error: [getErrorMessage(err)],
       };
     }
+  }
+
+  static stringToBinary(str: string): Uint8Array {
+    return Uint8Array.from(atob(str), (m) => {
+      // codePointAt cannot return `undefined` value here as callback is called on every symbol
+      return m.codePointAt(0) ?? 0;
+    });
   }
 
   securityGuard_remove: SecurityGuard;

@@ -64,6 +64,11 @@ const marineServices = new Map<string, MarineService>();
 let controlModule: WebAssembly.Module | undefined;
 const onLogMessage = new Subject<LogMessage>();
 
+type Module = {
+  name: string;
+  wasm: ArrayBuffer | SharedArrayBuffer;
+};
+
 const toExpose = {
   init: (controlModuleWasm: ArrayBuffer | SharedArrayBuffer) => {
     controlModule = new WebAssembly.Module(new Uint8Array(controlModuleWasm));
@@ -72,6 +77,7 @@ const toExpose = {
   createService: async (
     wasm: ArrayBuffer | SharedArrayBuffer,
     serviceId: string,
+    additionalModules: Module[],
     envs?: Env,
   ): Promise<void> => {
     if (controlModule === undefined) {
@@ -84,13 +90,34 @@ const toExpose = {
       throw new Error(`Service with name ${serviceId} already registered`);
     }
 
-    const marineConfig = createSimpleMarineService(serviceId, {
-      // We enable all possible log levels passing the control for exact printouts to the logger
+    let marineConfig: MarineServiceConfig = createSimpleMarineService(
+      serviceId, {
       ...logLevelToEnv("info"),
-      ...envs,
+      ...envs
     });
 
-    const modules = { [serviceId]: new Uint8Array(wasm) };
+    if (additionalModules.length > 0) {
+      marineConfig = {
+        modules_config: [
+          ...Array.from(additionalModules).map((module) => { return createSimpleModuleDescriptor(module.name, envs) }),
+          ...marineConfig.modules_config,
+        ],
+      };
+    }
+    
+    const mappedConfigs = new Array<Record<string, Uint8Array>>();
+
+    for (const module of additionalModules) {
+      mappedConfigs.push({ [module.name]: new Uint8Array(module.wasm) });
+    }
+
+    mappedConfigs.push({ [serviceId]: new Uint8Array(wasm) });
+
+    const modules = {
+      ...mappedConfigs.reduce((acc, val) => {
+        return { ...acc, ...val };
+      }, {}),
+    }
 
     const srv = new MarineService(
       controlModule,
